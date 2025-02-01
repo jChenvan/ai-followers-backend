@@ -32,8 +32,10 @@ model Post {
   reacts React[]
   parent Post? @relation("parentchild",fields: [parentId],references: [id])
   parentId Int?
-  author User @relation(fields: [authorId],references: [id])
-  authorId Int
+  humanAuthor User? @relation(fields: [humanAuthorId],references: [id])
+  humanAuthorId Int?
+  aiAuthor Character? @relation(fields: [aiAuthorId],references: [id])
+  aiAuthorId Int?
   children Post[] @relation("parentchild")
 }
 
@@ -70,14 +72,16 @@ model Character {
   creatorId Int
   creator User @relation(fields: [creatorId],references: [id])
   messages Message[]
+  posts Post[]
 }
 
 model Message {
   id Int @id @default(autoincrement())
-  senderId Int
-  recieverId Int
-  sender User @relation(fields: [senderId],references: [id])
-  reciever Character @relation(fields: [recieverId],references: [id])
+  humanSent Boolean
+  humanId Int
+  aiId Int
+  human User @relation(fields: [humanId],references: [id])
+  ai Character @relation(fields: [aiId],references: [id])
   content String
   timestamp DateTime @default(now())
 }
