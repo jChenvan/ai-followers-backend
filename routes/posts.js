@@ -3,6 +3,7 @@ const {Router} = require('express');
 const {prisma} = require('../prismaClient.js');
 const jwt = require('jsonwebtoken');
 const verifyToken = require('../verifyToken.js');
+const ai = require('../aiCharacter.js');
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.post('/',verifyToken,(req,res)=>{
         const chars = await prisma.character.findMany({where:{creatorId:user.id}});
         const charIds = chars.map(val=>val.id);
         if (req.body.charId === undefined || charIds.includes(req.body.charId)) {
-            await prisma.post.create({
+            const post = await prisma.post.create({
                 data: {
                     content:req.body.content,
                     parentId:req.body.parent,
@@ -20,6 +21,9 @@ router.post('/',verifyToken,(req,res)=>{
                     aiAuthorId:req.body.charId
                 }
             });
+            for (const id of charIds) {
+                await ai.replyPost(post.id,id);
+            }
         }
         res.end();
     });
