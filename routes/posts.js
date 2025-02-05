@@ -7,44 +7,60 @@ const ai = require('../aiCharacter.js');
 
 const router = Router();
 
-router.post('/',verifyToken,(req,res)=>{
-    jwt.verify(req.token,process.env.SECRET_KEY, async (err,authData)=>{
-        const user = JSON.parse(authData);
-        const chars = await prisma.character.findMany({where:{creatorId:user.id}});
-        const charIds = chars.map(val=>val.id);
-        if (req.body.charId === undefined || charIds.includes(req.body.charId)) {
-            const post = await prisma.post.create({
-                data: {
-                    content:req.body.content,
-                    parentId:req.body.parent,
-                    humanAuthorId:req.body.charId ? null : user.id,
-                    aiAuthorId:req.body.charId
-                }
-            });
-            for (const id of charIds) {
-                await ai.replyPost(post.id,id);
+router.post('/:userId',verifyToken,async(req,res)=>{
+    if (req.validIds.includes(req.params.userId)) {
+        const post = await prisma.post.create({
+            data: {
+                content:req.body.content,
+                parentId:req.body.parent,
+                authorId:req.params.userId
             }
+        });
+        for (let i = 0; i < req.validIds.length - 1; i++) {
+            await ai.replyPost(post.id,req.validIds[i],req.validIds.at(-1));
         }
-        res.end();
-    });
+    }
+    res.end();
 });
 
-router.get('/',verifyToken, (req,res)=>{
-    jwt.verify(req.token,process.env.SECRET_KEY, (err,authData) => {
-        const {id,username} = authData;
-        res.json({id,username});
-    });
+async function findChildren(node, nodes) {
+    const children = [];
+    let i = 0;
+    while (i < nodes.length) {
+        if (nodes[i].parentId == node.id) {
+            const curr = nodes.splice(i,1)[0];
+            children.push(findChildren(curr,nodes));
+        } else {
+            i++
+        }
+    }
+    return {...node, children}
+}
+
+router.get('/',verifyToken, async(req,res)=>{
+    const allPosts = await prisma.post.findMany({where:{authorId:{in:req.validIds}}});
+    const topLevelPosts = allPosts.filter(val=>val.parentId===null);
+    const res = topLevelPosts.map(val=>findChildren(val,allPosts));
+    res.json(res);
 });
 
-router.delete('/:postId',verifyToken, (req,res)=>{
-    jwt.verify(req.token,process.env.SECRET_KEY,async (err,authData) => {
-        const user = JSON.parse(authData);
-        let deleteUser;
-        if (req.params.userId === user.id) {
-            deleteUser = await prisma.user.delete({where:{id:user.id}});
+function getDeleteIds(currId,nodes) {
+    const res = [currId];
+    let i = 0;
+    while (i < nodes.length) {
+        if (nodes[i].parentId == currId) {
+            const next = nodes.splice(i,1)[0];
+            res.push(...getDeleteIds(next.id));
         }
-        req.json(deleteUser);
-    });
+    }
+    return res;
+}
+
+router.delete('/:postId',verifyToken, async(req,res)=>{
+    const allPosts = await prisma.post.findMany({where:{authorId:{in:req.validIds}}});
+    const toDel = getDeleteIds(req.params.postId,allPosts);
+    await prisma.post.deleteMany({where:{id:{in:toDel},authorId:{in:req.validIds}}});
+    res.end();
 });
 
 module.exports = router;
