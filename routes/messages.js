@@ -18,9 +18,12 @@ router.post('/',verifyToken,async(req,res)=>{
                 content
             }
         });
+        const replies = [];
         for (let i = 0; i < req.validIds.length - 1; i++) {
-            await ai.replyMessage(msg.id,req.validIds[i]);
+            const reply = await ai.replyMessage(msg.id,req.validIds[i]);
+            replies.push(reply);
         }
+        res.json({msg,replies})
     }
     res.end();
 });
@@ -37,9 +40,11 @@ router.delete('/:messageId',verifyToken, async (req,res)=>{
     const {senderId,recipientId} = await prisma.message.findUnique({where:{id:req.params.messageId}});
 
     if (req.verifyToken.includes(senderId) && req.verifyToken.includes(recipientId)) {
-        await prisma.message.delete({where:{id:req.params.messageId}});
-        res.end();
+        const deleted = await prisma.message.delete({where:{id:req.params.messageId}});
+        res.json(deleted);
     }
+
+    res.end();
 });
 
 module.exports = router;

@@ -18,8 +18,9 @@ router.post('/',async (req,res)=>{
             password:hashedPassword
         }
     });
+    let aiProfile;
     if (req.body.isAi) {
-        await prisma.aiProfile.create({
+        aiProfile = await prisma.aiProfile.create({
             data:{
                 userId:user.id,
                 prompt: req.body.prompt,
@@ -27,34 +28,54 @@ router.post('/',async (req,res)=>{
             }
         });
     }
-    res.json(user);
+    res.json({user,aiProfile});
 });
 
-router.get('/',verifyToken, (req,res)=>{
-    jwt.verify(req.token,process.env.SECRET_KEY, (err,authData) => {
-        const {id,username} = authData;
-        res.json({id,username});
+router.get('/me',verifyToken, async (req,res) => {
+    const user = await prisma.user.findUnique({
+        where:{
+            id:req.validIds.at(-1)
+        }
     });
+
+    const charIds = req.validIds.slice(0,-1);
+
+    res.json({user,charIds});
+});
+
+router.get('/:userId',verifyToken, async (req,res)=>{
+    const user = await prisma.user.findUnique({where:{id:req.params.userId}});
+    if (req.params.userId === req.validIds.at(-1)) {
+        const charIds = req.validIds.slice(0,-1);
+        res.json({user,charIds});
+    } else if (req.validIds.includes(req.params.userId)) {
+        const aiProfile = await prisma.aiProfile.findFirst({where:{userId:req.params.userId}});
+        res.json({user,aiProfile});
+    }
 });
 
 router.put('/:userId',verifyToken, async (req,res)=>{
+    let user;
+    let aiProfile;
     if (req.validIds.includes(req.params.userId) = req.validIds.at(-1)) {
-        await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
+        user = await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
     } else if (validIds.includes(req.params.userId)) {
-        await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
-        await prisma.aiProfile.update({where:{userId:req.params.userId},data:{prompt:req.body.prompt}});
+        user = await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
+        aiProfile = await prisma.aiProfile.update({where:{userId:req.params.userId},data:{prompt:req.body.prompt}});
     }
-    res.end();
+    res.json({user,aiProfile});
 });
 
 router.delete('/:userId',verifyToken, async (req,res)=>{
+    let user;
+    let aiProfile;
     if (req.params.userId = req.validIds.at(-1)) {
-        await prisma.user.delete({where:{id:req.params.userId}});
+        user = await prisma.user.delete({where:{id:req.params.userId}});
     } else if (validIds.includes(req.params.userId)) {
-        await prisma.user.delete({where:{id:req.params.userId}});
-        await prisma.aiProfile.delete({where:{userId:req.params.userId}});
+        user = await prisma.user.delete({where:{id:req.params.userId}});
+        aiProfile = await prisma.aiProfile.delete({where:{userId:req.params.userId}});
     }
-    res.end();
+    res.json({user,aiProfile});
 });
 
 module.exports = router;
