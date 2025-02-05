@@ -16,12 +16,21 @@ datasource db {
 model User {
   id Int @id @default(autoincrement())
   username String
-  password String
+  password String?
   postsAuthored Post[]
   postsLiked Like[]
-  postsReacted React[]
-  characters Character[]
-  messagesSent Message[]
+  characters AiProfile[] @relation("characters")
+  messagesSent Message[] @relation("messages sent")
+  messagesRecieved Message[] @relation("messages recieved")
+  profile AiProfile[] @relation("profile")
+}
+
+model AiProfile {
+  user User @relation("profile",fields: [userId], references: [id])
+  userId Int @id
+  prompt String
+  creator User @relation("characters",fields: [creatorId],references: [id])
+  creatorId Int
 }
 
 model Post {
@@ -29,13 +38,10 @@ model Post {
   timestamp DateTime @default(now())
   content String
   likes Like[]
-  reacts React[]
   parent Post? @relation("parentchild",fields: [parentId],references: [id])
   parentId Int?
-  humanAuthor User? @relation(fields: [humanAuthorId],references: [id])
-  humanAuthorId Int?
-  aiAuthor Character? @relation(fields: [aiAuthorId],references: [id])
-  aiAuthorId Int?
+  author User? @relation(fields: [authorId],references: [id])
+  authorId Int?
   children Post[] @relation("parentchild")
 }
 
@@ -48,40 +54,12 @@ model Like {
   @@id([userId,postId])
 }
 
-model Reaction {
-  id Int @id @default(autoincrement())
-  character String
-  posts React[]
-}
-
-model React {
-  userId Int
-  postId Int
-  reactionId Int
-  user User @relation(fields: [userId],references: [id])
-  post Post @relation(fields: [postId],references: [id])
-  reaction Reaction @relation(fields: [reactionId],references: [id])
-
-  @@id([userId,reactionId])
-}
-
-model Character {
-  id Int @id @default(autoincrement())
-  name String
-  prompt String
-  creatorId Int
-  creator User @relation(fields: [creatorId],references: [id])
-  messages Message[]
-  posts Post[]
-}
-
 model Message {
   id Int @id @default(autoincrement())
-  humanSent Boolean
-  humanId Int
-  aiId Int
-  human User @relation(fields: [humanId],references: [id])
-  ai Character @relation(fields: [aiId],references: [id])
+  senderId Int
+  recipientId Int
+  sender User @relation("messages sent", fields: [senderId],references: [id])
+  recipient User @relation("messages recieved", fields: [recipientId],references: [id])
   content String
   timestamp DateTime @default(now())
 }
