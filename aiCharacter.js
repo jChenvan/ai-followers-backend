@@ -4,9 +4,9 @@ const {prisma} = require('./prismaClient');
 const {OpenAI} = require('openai');
 const openai = new OpenAI({apiKey:process.env.OPENAI_KEY});
 
-async function replyPost(postId,characterId) {
+async function replyPost(postId,characterId,humanId) {
     const posts = [await prisma.post.findUnique({where:{id:postId}})];
-    const char = await prisma.character.findUnique({where:{id:characterId}});
+    const char = await prisma.aiProfile.findUnique({where:{userId:characterId}});
 
     while (typeof posts[0].parentId === 'number') {
         const parent = await prisma.post.findUnique({where:{id:posts[0].parentId}});
@@ -17,7 +17,7 @@ async function replyPost(postId,characterId) {
 
     for (const post of posts) {
         history.push({
-            role: post.humanAuthorId ? 'user' : 'assistant',
+            role: (post.authorId === humanId) ? 'user' : 'assistant',
             content: post.content
         });
     }
@@ -29,7 +29,7 @@ async function replyPost(postId,characterId) {
 
     return await prisma.post.create({
         data:{
-            aiAuthorId:characterId,
+            authorId:characterId,
             parentId:postId,
             content:reply.choices[0].message
         }
@@ -37,8 +37,18 @@ async function replyPost(postId,characterId) {
 }
 
 async function replyMessage(userId,characterId) {
-    const messages = await prisma.message.findMany({where:{humanId:userId,aiId:characterId},orderBy:{timestamp:'asc'}});
-    const char = await prisma.character.findUnique({where:{id:characterId}});
+    const chatters = [userId,characterId];
+
+    const messages = await prisma.message.findMany({
+        where:{
+            senderId:{in:chatters},
+            recipientId:{in:chatters}
+        },
+        orderBy: {
+            timestamp: 'asc'
+        }
+    });
+    const char = await prisma.aiProfile.findUnique({where:{userId:characterId}});
     const history = [{
         role:'system',
         content:char.prompt.concat('\nYou are DMing a user on a social media platform. Limit responses to no more than 2 sentences.')
@@ -46,12 +56,10 @@ async function replyMessage(userId,characterId) {
 
     for (const msg of messages) {
         history.push({
-            role: msg.humanSent ? 'user' : 'assistant',
+            role: (msg.senderId === userId) ? 'user' : 'assistant',
             content: msg.content
         });
     }
-
-    //TODO: openAi API
 
     const reply = await openai.chat.completions.create({
         model:'gpt-4o-mini',
@@ -60,9 +68,8 @@ async function replyMessage(userId,characterId) {
 
     return await prisma.message.create({
         data: {
-            humanSent:false,
-            humanId:userId,
-            aiId:characterId,
+            senderId:characterId,
+            recipientId:userId,
             content:reply.choices[0].message
         }
     });
