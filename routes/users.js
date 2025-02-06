@@ -31,18 +31,6 @@ router.post('/',async (req,res)=>{
     res.json({user,aiProfile});
 });
 
-router.get('/me',verifyToken, async (req,res) => {
-    const user = await prisma.user.findUnique({
-        where:{
-            id:req.validIds.at(-1)
-        }
-    });
-
-    const charIds = req.validIds.slice(0,-1);
-
-    res.json({user,charIds});
-});
-
 router.get('/:userId',verifyToken, async (req,res)=>{
     const user = await prisma.user.findUnique({where:{id:req.params.userId}});
     if (req.params.userId === req.validIds.at(-1)) {
@@ -66,14 +54,60 @@ router.put('/:userId',verifyToken, async (req,res)=>{
     res.json({user,aiProfile});
 });
 
+async function deleteAllPosts(userId) {
+    const toDelete = (await prisma.post.findMany({where:{authorId:userId}})).map(val=>val.id);
+    let start = 0;
+    let end = toDelete.length;
+
+    while (true) {
+        for (let i = start; i < end; i++) {
+            const children = (await prisma.post.findMany({where:{parentId:toDelete[i]}})).map(val=>val.id);
+            toDelete.push(...children);
+        }
+        if (toDelete.length === end) {
+            break
+        }
+        start = end;
+        end = toDelete.length;
+    }
+
+    return await prisma.post.deleteMany({where:{id:{in:toDelete}}});
+}
+
+async function deleteAllMessages(userId) {
+    return await prisma.message.deleteMany({
+        where:{
+            OR:[
+                {senderId:userId},
+                {recipientId:userId}
+            ]
+        }
+    });
+}
+
+async function deleteAllCharacters(userId) {
+    const charToDelete = (await prisma.aiProfile.findMany({
+        where: {creatorId:userId}
+    })).map(val=>val.userId);
+    for (cid of charToDelete) {
+        await prisma.aiProfile.delete({where:{userId:cid}});
+        await prisma.user.delete({where:{id:cid}});
+    }
+}
+
 router.delete('/:userId',verifyToken, async (req,res)=>{
     let user;
     let aiProfile;
     if (req.params.userId = req.validIds.at(-1)) {
+        await deleteAllPosts(req.params.userId);
+        await deleteAllMessages(req.params.userId);
+        await deleteAllCharacters(req.params.userId);
         user = await prisma.user.delete({where:{id:req.params.userId}});
     } else if (validIds.includes(req.params.userId)) {
-        user = await prisma.user.delete({where:{id:req.params.userId}});
+        await deleteAllPosts(req.params.userId);
+        await deleteAllMessages(req.params.userId);
         aiProfile = await prisma.aiProfile.delete({where:{userId:req.params.userId}});
+        user = await prisma.user.delete({where:{id:req.params.userId}});
     }
     res.json({user,aiProfile});
 });
