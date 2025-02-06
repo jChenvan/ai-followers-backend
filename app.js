@@ -6,9 +6,14 @@ const ai = require('./aiCharacter.js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const verifyToken = require('./verifyToken.js');
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
+app.use(cors({
+    origin: process.env.FRONTEND,
+    optionsSuccessStatus: 200
+}));
 
 const userRouter = require('./routes/users.js');
 const postRouter = require('./routes/posts.js');
