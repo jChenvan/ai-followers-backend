@@ -31,7 +31,7 @@ async function replyPost(postId,characterId,humanId) {
         data:{
             authorId:characterId,
             parentId:postId,
-            content:reply.choices[0].message
+            content:reply.choices[0].message.content
         }
     });
 }
@@ -70,7 +70,7 @@ async function replyMessage(userId,characterId) {
         data: {
             senderId:characterId,
             recipientId:userId,
-            content:reply.choices[0].message
+            content:reply.choices[0].message.content
         }
     });
 }
