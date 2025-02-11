@@ -17,9 +17,9 @@ function verifyToken(req,res,next) {
         try {
             const characters = await prisma.aiProfile.findMany({where:{creatorId:authData.id}});
             const validIds = characters.map(val=>val.userId);
-            validIds.push(authData.id);
 
             req.validIds = validIds;
+            req.userId = authData.id;
 
             if (!req.validIds) {
                 return res.status(404).json({message:"User not found"});

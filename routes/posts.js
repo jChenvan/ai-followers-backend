@@ -7,63 +7,79 @@ const ai = require('../aiCharacter.js');
 
 const router = Router();
 
-router.post('/:userId',verifyToken,async(req,res)=>{
-    if (req.validIds.includes(req.params.userId)) {
-        const post = await prisma.post.create({
-            data: {
-                content:req.body.content,
-                parentId:req.body.parent,
-                authorId:req.params.userId
-            }
-        });
-        const replies = [];
-        for (let i = 0; i < req.validIds.length - 1; i++) {
-            const reply = await ai.replyPost(post.id,req.validIds[i],req.validIds.at(-1));
-            replies.push(reply);
+router.post('/',verifyToken,async(req,res)=>{
+    const {content, parentId} = req.body;
+    const post = await prisma.post.create({
+        data: {
+            content,
+            parentId,
+            authorId:req.userId
         }
-        res.json({post,replies});
+    });
+    const replies = [];
+    const toReply = [];
+    if (!parentId) {
+        let replyCount = Math.min(3,req.validIds.length);
+        const indices = req.validIds.map((val,index)=>index);
+        while (replyCount) { 
+            const randIndex = Math.floor(Math.random()*indices.length);
+            toReply.push(req.validIds[indices.splice(randIndex,1)[0]]);
+            replyCount--;
+        }
+    } else {
+        const robot = await prisma.post.findUnique({select:{authorId:true},where:{id:parentId}});
+        toReply.push(robot.authorId);
     }
+
+    for (const i of toReply) {
+        const reply = await ai.replyPost(post.id,i,req.userId);
+        replies.push(reply);
+    }
+    res.json({post,replies});
     res.end();
 });
 
-async function findChildren(node, nodes) {
-    const children = [];
-    let i = 0;
-    while (i < nodes.length) {
-        if (nodes[i].parentId == node.id) {
-            const curr = nodes.splice(i,1)[0];
-            children.push(findChildren(curr,nodes));
-        } else {
-            i++
-        }
-    }
-    return {...node, children}
-}
-
 router.get('/',verifyToken, async(req,res)=>{
-    const allPosts = await prisma.post.findMany({where:{authorId:{in:req.validIds}}});
-    const topLevelPosts = allPosts.filter(val=>val.parentId===null);
-    const posttree = topLevelPosts.map(val=>findChildren(val,allPosts));
-    res.json(posttree);
+    const allPosts = await prisma.post.findMany({
+        select:{
+            id:true,
+            timestamp:true,
+            content:true,
+            parentId:true,
+            author:{
+                select:{
+                    username:true,
+                    hueRotation:true,
+                }
+            }
+        },
+        where:{OR:[
+            {authorId:req.userId},
+            {authorId:{in:req.validIds}}
+        ]}
+    });
+    res.json(allPosts);
 });
 
 function getDeleteIds(currId,nodes) {
-    const res = [currId];
+    const res = [parseInt(currId)];
     let i = 0;
     while (i < nodes.length) {
         if (nodes[i].parentId == currId) {
             const next = nodes.splice(i,1)[0];
-            res.push(...getDeleteIds(next.id));
+            res.push(...getDeleteIds(next.id,nodes));
+        } else {
+            i++;
         }
     }
     return res;
 }
 
 router.delete('/:postId',verifyToken, async(req,res)=>{
-    const allPosts = await prisma.post.findMany({where:{authorId:{in:req.validIds}}});
+    const allPosts = await prisma.post.findMany({where:{OR:[{authorId:req.userId},{authorId:{in:req.validIds}}]}});
     const toDel = getDeleteIds(req.params.postId,allPosts);
-    const deleted = await prisma.post.deleteMany({where:{id:{in:toDel},authorId:{in:req.validIds}}});
-    res.end(deleted);
+    const deleted = await prisma.post.deleteMany({where:{id:{in:toDel},OR:[{authorId:req.userId},{authorId:{in:req.validIds}}]}});
+    res.json(deleted);
 });
 
 module.exports = router;

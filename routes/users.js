@@ -8,50 +8,34 @@ const verifyToken = require('../verifyToken.js');
 const router = Router();
 
 router.post('/',async (req,res)=>{
-    let hashedPassword
-    if (!req.body.isAi) {
-        hashedPassword = await bcrypt.hash(req.body.password,10);
+    const {username,password} = req.body;
+
+    const aiIds = (await prisma.aiProfile.findMany({select:{userId:true}})).map(val=>val.userId);
+    const usernames = (await prisma.user.findMany({where:{id:{notIn:aiIds}},select:{username:true}})).map(val=>val.username);
+    if (usernames.includes(username)) {
+        res.status(409).json({message:"Username taken"});
+        return
     }
+
+    const hashedPassword = await bcrypt.hash(password,10);
     const user = await prisma.user.create({
         data: {
-            username:req.body.username,
-            password:hashedPassword
+            username,
+            password:hashedPassword,
+            hueRotation:Math.floor(Math.random()*360)
         }
     });
-    let aiProfile;
-    if (req.body.isAi) {
-        aiProfile = await prisma.aiProfile.create({
-            data:{
-                userId:user.id,
-                prompt: req.body.prompt,
-                creatorId: req.body.creator
-            }
-        });
-    }
-    res.json({user,aiProfile});
+    res.json({user:{username:user.username}});
 });
 
-router.get('/:userId',verifyToken, async (req,res)=>{
-    const user = await prisma.user.findUnique({where:{id:req.params.userId}});
-    if (req.params.userId === req.validIds.at(-1)) {
-        const charIds = req.validIds.slice(0,-1);
-        res.json({user,charIds});
-    } else if (req.validIds.includes(req.params.userId)) {
-        const aiProfile = await prisma.aiProfile.findFirst({where:{userId:req.params.userId}});
-        res.json({user,aiProfile});
-    }
+router.get('/',verifyToken, async (req,res)=>{
+    const {username,hueRotation} = await prisma.user.findUnique({where:{id:req.userId}});
+    res.json({username,hueRotation});
 });
 
-router.put('/:userId',verifyToken, async (req,res)=>{
-    let user;
-    let aiProfile;
-    if (req.validIds.includes(req.params.userId) = req.validIds.at(-1)) {
-        user = await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
-    } else if (validIds.includes(req.params.userId)) {
-        user = await prisma.user.update({where:{id:req.params.userId},data:{username:req.body.username}});
-        aiProfile = await prisma.aiProfile.update({where:{userId:req.params.userId},data:{prompt:req.body.prompt}});
-    }
-    res.json({user,aiProfile});
+router.put('/',verifyToken, async (req,res)=>{
+    const {username} = await prisma.user.update({where:{id:req.userId},data:{username:req.body.username}});
+    res.json({username});
 });
 
 async function deleteAllPosts(userId) {
@@ -95,21 +79,13 @@ async function deleteAllCharacters(userId) {
     }
 }
 
-router.delete('/:userId',verifyToken, async (req,res)=>{
-    let user;
-    let aiProfile;
-    if (req.params.userId = req.validIds.at(-1)) {
-        await deleteAllPosts(req.params.userId);
-        await deleteAllMessages(req.params.userId);
-        await deleteAllCharacters(req.params.userId);
-        user = await prisma.user.delete({where:{id:req.params.userId}});
-    } else if (validIds.includes(req.params.userId)) {
-        await deleteAllPosts(req.params.userId);
-        await deleteAllMessages(req.params.userId);
-        aiProfile = await prisma.aiProfile.delete({where:{userId:req.params.userId}});
-        user = await prisma.user.delete({where:{id:req.params.userId}});
-    }
-    res.json({user,aiProfile});
+router.delete('/',verifyToken, async (req,res)=>{
+    await deleteAllPosts(req.userId);
+    await deleteAllMessages(req.userId);
+    await deleteAllCharacters(req.userId);
+    const {username} = await prisma.user.delete({where:{id:req.userId}});
+
+    res.json({username});
 });
 
 module.exports = router;

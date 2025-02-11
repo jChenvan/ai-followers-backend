@@ -9,21 +9,27 @@ const verifyToken = require('./verifyToken.js');
 const cors = require('cors');
 
 const app = express();
-app.use(express.json());
+app.options('*',cors({
+    origin: process.env.FRONTEND,
+    optionsSuccessStatus: 200
+}));
 app.use(cors({
     origin: process.env.FRONTEND,
     optionsSuccessStatus: 200
 }));
+app.use(express.json());
 
 const userRouter = require('./routes/users.js');
 const postRouter = require('./routes/posts.js');
 const likeRouter = require('./routes/like.js');
 const msgRouter = require('./routes/messages.js');
+const charRouter = require('./routes/characters.js');
 
 app.use('/users',userRouter);
 app.use('/posts',postRouter);
 app.use('/likes',likeRouter);
 app.use('/messages',msgRouter);
+app.use('/characters',charRouter);
 
 app.post('/log-in',async (req,res)=>{
     const user = await prisma.user.findFirst({
@@ -31,14 +37,16 @@ app.post('/log-in',async (req,res)=>{
             username: req.body.username
         }
     });
-    let match;
-    if (user.password) {
-        match = await bcrypt.compare(req.body.password,user.password);
+    if (!user) {
+        res.status(500).json({message:"User does not exist"});
+        return;
     }
+    match = user.password ? await bcrypt.compare(req.body.password,user.password) : false;
     if (match) {
-        jwt.sign({...user,password:undefined},process.env.SECRET_KEY,{expiresIn:'2h'},(err,token)=>{
+        jwt.sign({id:user.id, username:user.username},process.env.SECRET_KEY,{expiresIn:'30min'},(err,token)=>{
             res.json({
-                token
+                token,
+                hueRotation: user.hueRotation
             });
         });
     }
