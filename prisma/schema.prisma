@@ -23,6 +23,7 @@ model User {
   messagesSent Message[] @relation("messages sent")
   messagesRecieved Message[] @relation("messages recieved")
   profile AiProfile[] @relation("profile")
+  hueRotation Int @default(0)
 }
 
 model AiProfile {
