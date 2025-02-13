@@ -27,13 +27,7 @@ async function replyPost(postId,characterId,humanId) {
         messages:history
     });
 
-    return await prisma.post.create({
-        data:{
-            authorId:characterId,
-            parentId:postId,
-            content:reply.choices[0].message.content
-        }
-    });
+    return reply.choices[0].message.content
 }
 
 async function replyMessage(userId,characterId) {
@@ -66,13 +60,7 @@ async function replyMessage(userId,characterId) {
         messages:history,
     });
 
-    return await prisma.message.create({
-        data: {
-            senderId:characterId,
-            recipientId:userId,
-            content:reply.choices[0].message.content
-        }
-    });
+    return reply.choices[0].message.content;
 }
 
 module.exports = {replyPost,replyMessage}

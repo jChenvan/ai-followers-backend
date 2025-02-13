@@ -8,35 +8,16 @@ const ai = require('../aiCharacter.js');
 const router = Router();
 
 router.post('/',verifyToken,async(req,res)=>{
-    const {content, parentId} = req.body;
+    const {parentId, charId} = req.body;
+    const content =  charId? (await ai.replyPost(parentId,charId,req.userId)) : req.body.content;
     const post = await prisma.post.create({
         data: {
             content,
             parentId,
-            authorId:req.userId
+            authorId:charId || req.userId
         }
     });
-    const replies = [];
-    const toReply = [];
-    if (!parentId) {
-        let replyCount = Math.min(3,req.validIds.length);
-        const indices = req.validIds.map((val,index)=>index);
-        while (replyCount) { 
-            const randIndex = Math.floor(Math.random()*indices.length);
-            toReply.push(req.validIds[indices.splice(randIndex,1)[0]]);
-            replyCount--;
-        }
-    } else {
-        const robot = await prisma.post.findUnique({select:{authorId:true},where:{id:parentId}});
-        toReply.push(robot.authorId);
-    }
-
-    for (const i of toReply) {
-        const reply = await ai.replyPost(post.id,i,req.userId);
-        replies.push(reply);
-    }
-    res.json({post,replies});
-    res.end();
+    res.json(post);
 });
 
 router.get('/',verifyToken, async(req,res)=>{
@@ -48,6 +29,7 @@ router.get('/',verifyToken, async(req,res)=>{
             parentId:true,
             author:{
                 select:{
+                    id:true,
                     username:true,
                     hueRotation:true,
                 }

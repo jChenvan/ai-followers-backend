@@ -8,20 +8,29 @@ const ai = require('../aiCharacter.js');
 const router = Router();
 
 router.post('/',verifyToken,async(req,res)=>{
-    const {recipientId,content} = req.body;
+    const {recipientId,content,charId} = req.body;
+
+    let msg;
 
     if (req.validIds.includes(recipientId)) {
-        const msg = await prisma.message.create({
+        msg = await prisma.message.create({
             data: {
                 senderId:req.userId,
                 recipientId,
                 content
             }
         });
-        const reply = await ai.replyMessage(req.userId,recipientId);
-        res.json({msg,reply})
+    } else if (!recipientId && charId) {
+        const text = await ai.replyMessage(req.userId,charId);
+        msg = await prisma.message.create({
+            data: {
+                senderId:charId,
+                recipientId:req.userId,
+                content:text
+            }
+        });
     }
-    res.end();
+    res.json(msg);
 });
 
 router.get('/:charId',verifyToken, async (req,res)=>{
