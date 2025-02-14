@@ -52,4 +52,4 @@ app.post('/log-in',async (req,res)=>{
     }
 });
 
-app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}!`));
+app.listen(process.env.PORT || 3000, () => console.log(`Listening on port ${process.env.PORT}!`));
