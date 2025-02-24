@@ -8,13 +8,21 @@ const jwt = require('jsonwebtoken');
 const verifyToken = require('./verifyToken.js');
 const cors = require('cors');
 
+const origin = (origin,callback) => {
+    if (!origin || origin === process.env.FRONTEND || origin === "http://localhost:5173") {
+        callback(null,true);
+    } else {
+        callback(new Error('Not allowed by CORS'));
+    }
+}
+
 const app = express();
 app.options('*',cors({
-    origin: process.env.FRONTEND,
+    origin,
     optionsSuccessStatus: 200
 }));
 app.use(cors({
-    origin: process.env.FRONTEND,
+    origin,
     optionsSuccessStatus: 200
 }));
 app.use(express.json());
