@@ -25,6 +25,19 @@ router.post('/',async (req,res)=>{
             hueRotation:Math.floor(Math.random()*360)
         }
     });
+
+    const testbot = await prisma.user.create({
+        data: {
+            username:'Testbot2000',
+            hueRotation:0,
+            profile:{
+                create:{
+                    prompt:'You are Testbot2000.\nYou are an advanced AI program. You will add beeps, boops, and other robotic phrases into your responses.'
+                }
+            }
+        }
+    });
+
     res.json({user:{username:user.username}});
 });
 

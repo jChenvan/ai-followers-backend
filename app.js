@@ -8,8 +8,7 @@ const jwt = require('jsonwebtoken');
 const verifyToken = require('./verifyToken.js');
 const cors = require('cors');
 
-const origin = "http://localhost:5173";
-// const origin = process.env.FRONTEND;
+const origin = process.env.FRONTEND;
 
 const app = express();
 app.options('*',cors({
