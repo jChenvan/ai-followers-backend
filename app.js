@@ -52,6 +52,8 @@ app.post('/log-in',async (req,res)=>{
                 hueRotation: user.hueRotation
             });
         });
+    } else {
+        res.status(500).json({message:"Invalid username/password!"});
     }
 });
 
