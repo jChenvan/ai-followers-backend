@@ -9,7 +9,7 @@ const verifyToken = require('./verifyToken.js');
 const cors = require('cors');
 
 const origin = (origin,callback) => {
-    if (!origin || origin === process.env.FRONTEND || origin === "http://localhost:5173") {
+    if (!origin || [process.env.FRONTEND,'http://localhost:5173','http://localhost:5173/',process.env.FRONTEND.concat('/')].includes(origin)) {
         callback(null,true);
     } else {
         callback(new Error('Not allowed by CORS'));
