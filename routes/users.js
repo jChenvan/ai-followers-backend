@@ -32,7 +32,8 @@ router.post('/',async (req,res)=>{
             hueRotation:0,
             profile:{
                 create:{
-                    prompt:'You are Testbot2000.\nYou are an advanced AI program. You will add beeps, boops, and other robotic phrases into your responses.'
+                    prompt:'You are Testbot2000.\nYou are an advanced AI program. You will add beeps, boops, and other robotic phrases into your responses.',
+                    creatorId: user.id
                 }
             }
         }
